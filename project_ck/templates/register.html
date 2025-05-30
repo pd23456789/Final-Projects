@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Face Attendance</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      background-color: white;
+      width: 800px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      position: relative;
+    }
+
+    .camera {
+      width: 100%;
+      height: 600px;
+      position: relative;
+      background-color: black;
+    }
+
+    .camera video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .corner-frame {
+      position: absolute;
+      width: 240px;
+      height: 300px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .corner-frame::before,
+    .corner-frame::after,
+    .corner-frame span::before,
+    .corner-frame span::after {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border: 3px solid red;
+    }
+
+    .corner-frame::before {
+      top: 0;
+      left: 0;
+      border-right: none;
+      border-bottom: none;
+    }
+
+    .corner-frame::after {
+      top: 0;
+      right: 0;
+      border-left: none;
+      border-bottom: none;
+    }
+
+    .corner-frame span::before {
+      bottom: 0;
+      left: 0;
+      border-top: none;
+      border-right: none;
+    }
+
+    .corner-frame span::after {
+      bottom: 0;
+      right: 0;
+      border-top: none;
+      border-left: none;
+    }
+
+    .footer {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #007bff;
+      color: white;
+      padding: 20px;
+      gap: 30px;
+    }
+
+    .info {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .info .time {
+      font-size: 18px;
+      opacity: 0.9;
+    }
+
+    .info .name {
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    .avatar {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      border: 3px solid white;
+      overflow: hidden;
+    }
+
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .success .corner-frame::before,
+    .success .corner-frame::after,
+    .success .corner-frame span::before,
+    .success .corner-frame span::after {
+      border-color: limegreen;
+    }
+
+    #success-message {
+      position: absolute;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(0, 128, 0, 0.9);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      display: none;
+      z-index: 10;
+    }
+
+    #register-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      z-index: 20;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="success-message">Chấm công thành công!</div>
+    <button id="register-btn">+ Đăng ký khuôn mặt</button>
+    <div class="camera" id="camera-box">
+      <video id="webcam" autoplay muted playsinline></video>
+      <div class="corner-frame"><span></span></div>
+    </div>
+    <div class="footer">
+      <div class="avatar" id="avatar-box">
+        <img src="avatar.jpg" alt="avatar" id="avatar-img">
+      </div>
+      <div class="info">
+        <div class="name" id="name-display">--</div>
+        <div class="time" id="datetime">--:--:--<br>----</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const video = document.getElementById('webcam');
+    const datetimeEl = document.getElementById('datetime');
+    const cameraBox = document.getElementById('camera-box');
+    const nameDisplay = document.getElementById('name-display');
+    const avatarImg = document.getElementById('avatar-img');
+    const successMsg = document.getElementById('success-message');
+    const registerBtn = document.getElementById('register-btn');
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+      })
+      .catch(err => {
+        console.error('Webcam access denied:', err);
+      });
+
+    function updateDateTime() {
+      const now = new Date();
+      const time = now.toLocaleTimeString();
+      const date = now.toLocaleDateString();
+      datetimeEl.innerHTML = `${time}<br>${date}`;
+    }
+
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+
+    function captureImage() {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg');
+    }
+
+    function captureAndSend() {
+      const imageData = captureImage();
+
+      fetch('/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'image=' + encodeURIComponent(imageData)
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.results.length > 0 && data.results[0] !== "Unknown") {
+          const name = data.results[0];
+          nameDisplay.textContent = name;
+          avatarImg.src = `/faces/${name}.jpg`;
+          cameraBox.classList.add('success');
+          successMsg.style.display = 'block';
+
+          setTimeout(() => {
+            cameraBox.classList.remove('success');
+            successMsg.style.display = 'none';
+            nameDisplay.textContent = "--";
+            avatarImg.src = "avatar.jpg";
+          }, 3000);
+        } else {
+          nameDisplay.textContent = "Không xác định";
+        }
+      });
+    }
+
+    setInterval(captureAndSend, 5000);
+
+    registerBtn.addEventListener('click', () => {
+      const imageData = captureImage();
+      const name = prompt("Nhập tên để đăng ký:");
+      if (!name) return;
+
+      fetch('/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `image=${encodeURIComponent(imageData)}&name=${encodeURIComponent(name)}`
+      })
+      .then(res => res.json())
+      .then(data => {
+        alert(data.message);
+      });
+    });
+  </script>
+</body>
+</html>
